@@ -1,5 +1,5 @@
 <?php
-$conn = new mysqli("localhost", "root", "", "pokedex_fatec");
+$conn = new mysqli("localhost", "root", "admin", "pokedex_fatec");
 
 $id = $_POST['id'];
 $email = $_POST['email'];
