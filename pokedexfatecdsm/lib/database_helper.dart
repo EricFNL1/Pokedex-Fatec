@@ -49,15 +49,10 @@ class DatabaseHelper {
           'senha': 'pikachu',
         });
       },
-      onOpen: (db) async {
-        final existing = await db.query('pokemons');
-        if (existing.isEmpty) {
-          print('Tabela pokemons está vazia. Buscando do servidor...');
-          await _carregarPokemonsDoServidor(db);
-        } else {
-          print('Pokémons já carregados no SQLite. Não é necessário buscar novamente.');
-        }
-      },
+onOpen: (db) async {
+  print('Sincronizando pokémons do servidor sem apagar os existentes...');
+  await _carregarPokemonsDoServidor(db);
+},
     );
   }
 
@@ -70,13 +65,17 @@ Future<void> _carregarPokemonsDoServidor(Database db) async {
 
       for (var p in data) {
         final imagemPath = 'assets/images/${p['imagem']}';
-        await db.insert('pokemons', {
-          'id': int.parse(p['id']),
-          'nome': p['nome'],
-          'tipo': p['tipo'],
-          'imagem': imagemPath,
-        });
-        print('Inserido no SQLite: ${p['nome']}');
+        await db.insert(
+          'pokemons',
+          {
+            'id': int.parse(p['id']),
+            'nome': p['nome'],
+            'tipo': p['tipo'],
+            'imagem': imagemPath,
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace, 
+        );
+        print('Salvo/atualizado no SQLite: ${p['nome']}');
       }
       return;
     } else {
@@ -100,10 +99,11 @@ Future<void> _carregarPokemonsDoServidor(Database db) async {
   ];
 
   for (var p in fallbackPokemons) {
-    await db.insert('pokemons', p);
+    await db.insert('pokemons', p, conflictAlgorithm: ConflictAlgorithm.replace);
     print('Inserido do fallback: ${p['nome']}');
   }
 }
+
 
   Future<Usuario?> getUser(String email, String senha) async {
     final db = await database;
