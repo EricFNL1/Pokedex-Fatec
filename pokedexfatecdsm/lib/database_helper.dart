@@ -11,7 +11,7 @@ class DatabaseHelper {
   DatabaseHelper._internal();
 
   Database? _db;
-  final String baseUrl = 'http://10.0.0.246:8000'; // <-- Atualize aqui se mudar IP
+  final String baseUrl = 'http://10.0.0.246:8000';
 
   Future<Database> get database async {
     if (_db != null) return _db!;
@@ -22,8 +22,6 @@ class DatabaseHelper {
   Future<Database> _initDb() async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, 'app.db');
-
-    await deleteDatabase(path); // <--- Força recriação
 
     return await openDatabase(
       path,
@@ -50,39 +48,63 @@ class DatabaseHelper {
           'email': 'fatec@pokemon.com',
           'senha': 'pikachu',
         });
-
-        await _carregarPokemonsDoServidor(db);
+      },
+      onOpen: (db) async {
+        final existing = await db.query('pokemons');
+        if (existing.isEmpty) {
+          print('Tabela pokemons está vazia. Buscando do servidor...');
+          await _carregarPokemonsDoServidor(db);
+        } else {
+          print('Pokémons já carregados no SQLite. Não é necessário buscar novamente.');
+        }
       },
     );
   }
 
-  /// Carrega pokémons do servidor e insere no SQLite
-  Future<void> _carregarPokemonsDoServidor(Database db) async {
-    try {
-      final response = await http.get(Uri.parse('$baseUrl/get_pokemon.php'));
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        print('Pokémons recebidos do servidor: $data');
+Future<void> _carregarPokemonsDoServidor(Database db) async {
+  try {
+    final response = await http.get(Uri.parse('$baseUrl/get_pokemon.php'));
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      print('Pokémons recebidos do servidor: $data');
 
-        for (var p in data) {
-          final imagemPath = 'assets/images/${p['imagem']}';
-          await db.insert('pokemons', {
-            'id': int.parse(p['id']),
-            'nome': p['nome'],
-            'tipo': p['tipo'],
-            'imagem': imagemPath,
-          });
-          print('Inserido no SQLite: ${p['nome']}');
-        }
-      } else {
-        print('Erro ao buscar pokémons: ${response.statusCode}');
+      for (var p in data) {
+        final imagemPath = 'assets/images/${p['imagem']}';
+        await db.insert('pokemons', {
+          'id': int.parse(p['id']),
+          'nome': p['nome'],
+          'tipo': p['tipo'],
+          'imagem': imagemPath,
+        });
+        print('Inserido no SQLite: ${p['nome']}');
       }
-    } catch (e) {
-      print('Erro ao carregar pokémons do servidor: $e');
+      return;
+    } else {
+      print('Erro ao buscar pokémons: ${response.statusCode}');
     }
+  } catch (e) {
+    print('Erro ao carregar pokémons do servidor: $e');
   }
 
-  /// Login local
+  final fallbackPokemons = [
+    {'id': 1, 'nome': 'Bulbasaur', 'tipo': 'Grass/Poison', 'imagem': 'assets/images/bulbasaur.png'},
+    {'id': 2, 'nome': 'Ivysaur', 'tipo': 'Grass/Poison', 'imagem': 'assets/images/ivysaur.png'},
+    {'id': 3, 'nome': 'Venusaur', 'tipo': 'Grass/Poison', 'imagem': 'assets/images/venusaur.png'},
+    {'id': 4, 'nome': 'Charmander', 'tipo': 'Fire', 'imagem': 'assets/images/charmander.png'},
+    {'id': 5, 'nome': 'Charmeleon', 'tipo': 'Fire', 'imagem': 'assets/images/charmeleon.png'},
+    {'id': 6, 'nome': 'Charizard', 'tipo': 'Fire/Flying', 'imagem': 'assets/images/charizard.png'},
+    {'id': 7, 'nome': 'Squirtle', 'tipo': 'Water', 'imagem': 'assets/images/squirtle.png'},
+    {'id': 8, 'nome': 'Wartortle', 'tipo': 'Water', 'imagem': 'assets/images/wartortle.png'},
+    {'id': 9, 'nome': 'Blastoise', 'tipo': 'Water', 'imagem': 'assets/images/blastoise.png'},
+    {'id': 10, 'nome': 'Caterpie', 'tipo': 'Bug', 'imagem': 'assets/images/caterpie.png'},
+  ];
+
+  for (var p in fallbackPokemons) {
+    await db.insert('pokemons', p);
+    print('Inserido do fallback: ${p['nome']}');
+  }
+}
+
   Future<Usuario?> getUser(String email, String senha) async {
     final db = await database;
     final result = await db.query(
@@ -100,7 +122,6 @@ class DatabaseHelper {
     return null;
   }
 
-  /// Lista pokémons do SQLite com log de debug
   Future<List<Pokemon>> getPokemons() async {
     final db = await database;
     final result = await db.query('pokemons');
@@ -114,7 +135,6 @@ class DatabaseHelper {
     )).toList();
   }
 
-  /// Envia dados do SQLite para o MySQL
   Future<void> syncToMySQL() async {
     final db = await database;
 

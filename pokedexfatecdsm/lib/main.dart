@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'tela_login.dart';
+import 'database_helper.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const MyApp());
 }
 
